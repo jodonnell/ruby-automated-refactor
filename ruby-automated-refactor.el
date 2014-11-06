@@ -101,7 +101,13 @@
   (newline)
   (yank)
   (ruby-automated-refactor--insert-and-indent "end")
-  (newline))
+  (newline)
+  (ruby-automated-refactor--reindent-new-method))
+
+(defun ruby-automated-refactor--reindent-new-method()
+  (save-excursion
+    (mark-defun)
+    (indent-region (region-beginning) (region-end))))
 
 (defun ruby-automated-refactor--generate-method-name(method-name)
   (concat
