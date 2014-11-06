@@ -4,6 +4,8 @@
 (defvar ruby-automated-refactor--current-buffer nil)
 (defvar ruby-automated-refactor--call-marker nil)
 (defvar ruby-automated-refactor--call-marker nil)
+(defvar ruby-automated-refactor--is-class-method nil)
+
 
 (defvar ruby-automated-refactor--ruby-path
   (let ((current (buffer-file-name)))
@@ -58,7 +60,7 @@
             (progn
               (set-buffer ruby-automated-refactor--current-buffer)
               (beginning-of-buffer)
-              (search-forward (concat "def " ruby-automated-refactor--name))
+              (search-forward (ruby-automated-refactor--generate-method-name ruby-automated-refactor--name))
               (insert " ")
               (insert args)
               (goto-char ruby-automated-refactor--call-marker)
@@ -70,10 +72,19 @@
 
 (defun ruby-automated-refactor--move-code-to-new-method(method-name)
   (save-excursion
+    (beginning-of-defun)
+    (setq ruby-automated-refactor--is-class-method (string-match "def self." (ruby-automated-refactor--get-line))))
+  (save-excursion
     (ruby-automated-refactor--replace-region-with-method method-name)
     (ruby-automated-refactor--find-spot-to-insert-new-method)
     (ruby-automated-refactor--insert-new-method method-name)))
 
+(defun ruby-automated-refactor--get-line()
+  (let (p1 p2)
+    (setq p1 (line-beginning-position) )
+    (setq p2 (line-end-position) )
+    (buffer-substring-no-properties p1 p2)))
+  
 (defun ruby-automated-refactor--replace-region-with-method(method-name)
   (kill-region (point) (mark))
   (ruby-automated-refactor--insert-and-indent method-name)
@@ -86,11 +97,18 @@
   (beginning-of-line))
 
 (defun ruby-automated-refactor--insert-new-method(method-name)
-  (ruby-automated-refactor--insert-and-indent (concat "def " method-name))
+  (ruby-automated-refactor--insert-and-indent (ruby-automated-refactor--generate-method-name method-name))
   (newline)
   (yank)
   (ruby-automated-refactor--insert-and-indent "end")
   (newline))
+
+(defun ruby-automated-refactor--generate-method-name(method-name)
+  (concat
+   "def "
+   (if ruby-automated-refactor--is-class-method
+       "self.")
+   method-name))
 
 (defun ruby-automated-refactor--old-method-into-ripper()
   (beginning-of-defun)
