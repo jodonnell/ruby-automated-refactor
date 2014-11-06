@@ -1,8 +1,9 @@
 (defvar ruby-automated-refactor--process-name "ruby-automated-refactor-process")
 
-(defvar ruby-automated-refactor--method-name nil)
-(defvar ruby-automated-refactor--method-current-buffer nil)
-(defvar ruby-automated-refactor--method-call-marker nil)
+(defvar ruby-automated-refactor--name nil)
+(defvar ruby-automated-refactor--current-buffer nil)
+(defvar ruby-automated-refactor--call-marker nil)
+(defvar ruby-automated-refactor--call-marker nil)
 
 (defvar ruby-automated-refactor--ruby-path
   (let ((current (buffer-file-name)))
@@ -11,8 +12,8 @@
 
 (defun ruby-automated-refactor-extract-method(method-name)
   (interactive "sNew method name: ")
-  (setq ruby-automated-refactor--method-name method-name)
-  (setq ruby-automated-refactor--method-current-buffer (current-buffer))
+  (setq ruby-automated-refactor--name method-name)
+  (setq ruby-automated-refactor--current-buffer (current-buffer))
   (ruby-automated-refactor--setup-process)
   (ruby-automated-refactor--move-code-to-new-method method-name)
   (ruby-automated-refactor--add-arguments-to-method method-name))
@@ -49,18 +50,18 @@
                                ruby-automated-refactor--ruby-path)))
 
 (defun ruby-automated-refactor--process-filter(process output)
-  (set-buffer ruby-automated-refactor--method-current-buffer)
+  (set-buffer ruby-automated-refactor--current-buffer)
   (if (string-match "\"\\(.*\\)\"$" output)
       (progn
       (let ((args (match-string 1 output)))
         (if (not (string= "" args))
             (progn
-              (set-buffer ruby-automated-refactor--method-current-buffer)
+              (set-buffer ruby-automated-refactor--current-buffer)
               (beginning-of-buffer)
-              (search-forward (concat "def " ruby-automated-refactor--method-name))
+              (search-forward (concat "def " ruby-automated-refactor--name))
               (insert " ")
               (insert args)
-              (goto-char ruby-automated-refactor--method-call-marker)
+              (goto-char ruby-automated-refactor--call-marker)
               (insert " ")
               (insert args)))))))
 
@@ -76,7 +77,7 @@
 (defun ruby-automated-refactor--replace-region-with-method(method-name)
   (kill-region (point) (mark))
   (ruby-automated-refactor--insert-and-indent method-name)
-  (setq ruby-automated-refactor--method-call-marker (point-marker))
+  (setq ruby-automated-refactor--call-marker (point-marker))
   (newline))
 
 (defun ruby-automated-refactor--find-spot-to-insert-new-method()
