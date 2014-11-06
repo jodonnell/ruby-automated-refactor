@@ -1,43 +1,43 @@
-(defvar extract-process-name "extract-process")
+(defvar ruby-automated-refactor--process-name "ruby-automated-refactor-process")
 
-(defvar extract-method-name nil)
-(defvar extract-method-current-buffer nil)
-(defvar extract-method-call-marker nil)
+(defvar ruby-automated-refactor--method-name nil)
+(defvar ruby-automated-refactor--method-current-buffer nil)
+(defvar ruby-automated-refactor--method-call-marker nil)
 
-(defvar extract-ruby-path
+(defvar ruby-automated-refactor--ruby-path
   (let ((current (buffer-file-name)))
     (expand-file-name (file-name-directory current)))
   "Path to the backend Ruby code.")
 
-(defun extract-method(method-name)
+(defun ruby-automated-refactor-extract-method(method-name)
   (interactive "sNew method name: ")
-  (setq extract-method-name method-name)
-  (setq extract-method-current-buffer (current-buffer))
-  (setup-process)
-  (move-code-to-new-method method-name)
-  (add-arguments-to-method method-name))
+  (setq ruby-automated-refactor--method-name method-name)
+  (setq ruby-automated-refactor--method-current-buffer (current-buffer))
+  (ruby-automated-refactor--setup-process)
+  (ruby-automated-refactor--move-code-to-new-method method-name)
+  (ruby-automated-refactor--add-arguments-to-method method-name))
 
-(defun add-arguments-to-method(method-name) ; bad method name
+(defun ruby-automated-refactor--add-arguments-to-method(method-name) ; bad method name
   (save-excursion
     (save-excursion
-      (old-method-into-ripper))
-    (new-method-into-ripper)
-    (get-used)))
+      (ruby-automated-refactor--old-method-into-ripper))
+    (ruby-automated-refactor--new-method-into-ripper)
+    (ruby-automated-refactor--get-used)))
 
-(defun setup-process()
-  (when (not (and (extract-process) (process-live-p (extract-process))))
+(defun ruby-automated-refactor--setup-process()
+  (when (not (and (ruby-automated-refactor--process) (process-live-p (ruby-automated-refactor--process))))
     (progn
-      (start-extract-process)
-      (require-ruby-code))))
+      (ruby-automated-refactor--start-process)
+      (ruby-automated-refactor--require-ruby-code))))
 
-(defun start-extract-process()
+(defun ruby-automated-refactor--start-process()
   (let ((process-connection-type nil))  ; use a pipe
-    (start-process extract-process-name nil "irb")
-  (set-process-filter (extract-process) 'extract-process-filter)))
-;(delete-process (extract-process))
+    (start-process ruby-automated-refactor--process-name nil "irb")
+  (set-process-filter (ruby-automated-refactor--process) 'ruby-automated-refactor--process-filter)))
+;(delete-process (ruby-automated-refactor--process))
 
-(defun require-ruby-code()
-  (process-send-string (extract-process)
+(defun ruby-automated-refactor--require-ruby-code()
+  (process-send-string (ruby-automated-refactor--process)
                        (format (mapconcat #'identity
                                           '("unless defined? ASTRefactor"
                                             "$:.unshift '%s'"
@@ -46,70 +46,69 @@
                                             "ast_refactor = ASTRefactor.new"
                                             "end\n")
                                           "; ")
-                               extract-ruby-path)))
+                               ruby-automated-refactor--ruby-path)))
 
-(defun extract-process-filter(process output)
-  (set-buffer extract-method-current-buffer)
+(defun ruby-automated-refactor--process-filter(process output)
+  (set-buffer ruby-automated-refactor--method-current-buffer)
   (if (string-match "\"\\(.*\\)\"$" output)
       (progn
       (let ((args (match-string 1 output)))
-        (set-buffer extract-method-current-buffer)
+        (set-buffer ruby-automated-refactor--method-current-buffer)
         (beginning-of-buffer)
-        (search-forward (concat "def " extract-method-name))
+        (search-forward (concat "def " ruby-automated-refactor--method-name))
         (insert " ")
         (insert args)
-        (goto-char extract-method-call-marker)
+        (goto-char ruby-automated-refactor--method-call-marker)
         (insert " ")
         (insert args)))))
 
-(defun extract-process()
-  (get-process extract-process-name))
+(defun ruby-automated-refactor--process()
+  (get-process ruby-automated-refactor--process-name))
 
-(defun move-code-to-new-method(method-name)
+(defun ruby-automated-refactor--move-code-to-new-method(method-name)
   (save-excursion
-    (replace-region-with-method method-name)
-    (find-spot-to-insert-new-method)
-    (insert-new-method method-name)))
+    (ruby-automated-refactor--replace-region-with-method method-name)
+    (ruby-automated-refactor--find-spot-to-insert-new-method)
+    (ruby-automated-refactor--insert-new-method method-name)))
 
-(defun replace-region-with-method(method-name)
+(defun ruby-automated-refactor--replace-region-with-method(method-name)
   (kill-region (point) (mark))
   (insert-and-indent method-name)
-  (setq extract-method-call-marker (point-marker))
+  (setq ruby-automated-refactor--method-call-marker (point-marker))
   (newline))
 
-(defun find-spot-to-insert-new-method()
+(defun ruby-automated-refactor--find-spot-to-insert-new-method()
   (end-of-defun)
   (newline)
   (beginning-of-line))
 
-(defun insert-new-method(method-name)
+(defun ruby-automated-refactor--insert-new-method(method-name)
   (insert-and-indent (concat "def " method-name))
   (newline)
   (yank)
   (insert-and-indent "end")
   (newline))
 
-(defun old-method-into-ripper()
+(defun ruby-automated-refactor--old-method-into-ripper()
   (beginning-of-defun)
-  (process-send-string (extract-process) (ripper-sexp "a")))
+  (process-send-string (ruby-automated-refactor--process) (ripper-sexp "a")))
 
-(defun new-method-into-ripper()
+(defun ruby-automated-refactor--new-method-into-ripper()
   (end-of-defun)
-  (process-send-string (extract-process) (ripper-sexp "b")))
+  (process-send-string (ruby-automated-refactor--process) (ripper-sexp "b")))
 
-(defun ripper-sexp(var)
-  (concat var " = Ripper.sexp(<<ruby_emacs_extract_string\n" (get-method) "\nruby_emacs_extract_string\n)\n"))
+(defun ruby-automated-refactor--ripper-sexp(var)
+  (concat var " = Ripper.sexp(<<ruby_emacs_extract_string\n" (ruby-automated-refactor--get-method) "\nruby_emacs_extract_string\n)\n"))
 
-(defun get-method() 
-  ; need to escape any '
+(defun ruby-automated-refactor--get-method() 
   (let (start)
     (setq start (point))
     (end-of-defun)
     (buffer-substring-no-properties start (point))))
 
-(defun get-used()
-  (process-send-string (extract-process) "((ast_refactor.get_variable_references b, []) & (ast_refactor.get_local_variables_from_caller a, [])).join(', ')\n"))
+(defun ruby-automated-refactor--get-used()
+  (process-send-string (ruby-automated-refactor--process) "((ast_refactor.get_variable_references b, []) & (ast_refactor.get_local_variables_from_caller a, [])).join(', ')\n"))
 
-(defun insert-and-indent(text)
+(defun ruby-automated-refactor--insert-and-indent(text)
   (insert text)
   (indent-according-to-mode))
