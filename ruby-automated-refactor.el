@@ -41,7 +41,7 @@
                        (format (mapconcat #'identity
                                           '("unless defined? ASTRefactor"
                                             "$:.unshift '%s'"
-                                            "require 'extract'"
+                                            "require 'ruby-automated-refactor'"
                                             "require 'ripper'"
                                             "ast_refactor = ASTRefactor.new"
                                             "end\n")
@@ -73,7 +73,7 @@
 
 (defun ruby-automated-refactor--replace-region-with-method(method-name)
   (kill-region (point) (mark))
-  (insert-and-indent method-name)
+  (ruby-automated-refactor--insert-and-indent method-name)
   (setq ruby-automated-refactor--method-call-marker (point-marker))
   (newline))
 
@@ -83,19 +83,19 @@
   (beginning-of-line))
 
 (defun ruby-automated-refactor--insert-new-method(method-name)
-  (insert-and-indent (concat "def " method-name))
+  (ruby-automated-refactor--insert-and-indent (concat "def " method-name))
   (newline)
   (yank)
-  (insert-and-indent "end")
+  (ruby-automated-refactor--insert-and-indent "end")
   (newline))
 
 (defun ruby-automated-refactor--old-method-into-ripper()
   (beginning-of-defun)
-  (process-send-string (ruby-automated-refactor--process) (ripper-sexp "a")))
+  (process-send-string (ruby-automated-refactor--process) (ruby-automated-refactor--ripper-sexp "a")))
 
 (defun ruby-automated-refactor--new-method-into-ripper()
   (end-of-defun)
-  (process-send-string (ruby-automated-refactor--process) (ripper-sexp "b")))
+  (process-send-string (ruby-automated-refactor--process) (ruby-automated-refactor--ripper-sexp "b")))
 
 (defun ruby-automated-refactor--ripper-sexp(var)
   (concat var " = Ripper.sexp(<<ruby_emacs_extract_string\n" (ruby-automated-refactor--get-method) "\nruby_emacs_extract_string\n)\n"))
